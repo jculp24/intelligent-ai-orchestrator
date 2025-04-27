@@ -76,3 +76,38 @@ export const getChatMessages = async (sessionId: string) => {
   if (error) throw error;
   return data;
 };
+
+/**
+ * Save model performance metrics to the database
+ * @param modelId - The ID of the model that was used
+ * @param success - Whether the model execution was successful
+ * @param executionTime - The execution time in milliseconds
+ */
+export const saveModelPerformance = async (
+  modelId: string,
+  success: boolean,
+  executionTime: number
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('model_performance')
+      .insert({
+        model_id: modelId,
+        success,
+        execution_time: executionTime,
+        timestamp: new Date().toISOString()
+      });
+    
+    if (error) {
+      // If the table doesn't exist yet, log an error but don't throw
+      // This allows the app to function before the full analytics system is in place
+      console.warn('Could not save model performance metrics:', error);
+      return;
+    }
+    
+    console.log(`Performance metrics saved for model ${modelId}: ${executionTime}ms`);
+  } catch (error) {
+    console.error('Error saving model performance:', error);
+    // Non-blocking error - we don't want performance logging to break the main application
+  }
+};
