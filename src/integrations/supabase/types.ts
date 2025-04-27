@@ -9,13 +9,131 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          id: string
+          model_id: string | null
+          role: string
+          session_id: string
+          timestamp: string
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          id?: string
+          model_id?: string | null
+          role: string
+          session_id: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          id?: string
+          model_id?: string | null
+          role?: string
+          session_id?: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      model_feedback: {
+        Row: {
+          comments: string | null
+          created_at: string
+          id: string
+          message_id: string
+          rating: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          message_id: string
+          rating: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string
+          rating?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_performance: {
+        Row: {
+          avg_latency: number
+          id: string
+          model_id: string
+          public_sentiment: number
+          success_rate: number
+          successful_calls: number
+          total_calls: number
+          updated_at: string
+        }
+        Insert: {
+          avg_latency?: number
+          id?: string
+          model_id: string
+          public_sentiment?: number
+          success_rate?: number
+          successful_calls?: number
+          total_calls?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_latency?: number
+          id?: string
+          model_id?: string
+          public_sentiment?: number
+          success_rate?: number
+          successful_calls?: number
+          total_calls?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_model_performance: {
+        Args: { p_model_id: string; p_success: boolean; p_latency: number }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

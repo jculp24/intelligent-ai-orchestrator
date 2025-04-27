@@ -1,0 +1,112 @@
+
+import { useState, useCallback } from 'react';
+import { ChatMessage, ExecutionResult, RoutingResult } from '@/types';
+import { routePrompt, getModelById } from '@/services/modelRouter';
+import { executeWithFallback } from '@/services/modelExecutor';
+import { createChatSession, saveChatMessage, saveModelPerformance } from '@/services/chatService';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
+
+export const useChat = () => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  const initializeSession = useCallback(async () => {
+    try {
+      const session = await createChatSession();
+      setSessionId(session.id);
+    } catch (error) {
+      console.error('Failed to create chat session:', error);
+      toast.error('Failed to initialize chat session');
+    }
+  }, []);
+
+  const processMessage = useCallback(async (content: string) => {
+    if (!sessionId) {
+      await initializeSession();
+    }
+
+    setIsProcessing(true);
+
+    try {
+      // Create and save user message
+      const userMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'user',
+        content,
+        timestamp: Date.now()
+      };
+
+      await saveChatMessage(sessionId!, userMessage);
+      setMessages(prev => [...prev, userMessage]);
+
+      // Route the prompt
+      const routingStart = performance.now();
+      const routingResult = routePrompt(content, 'free');
+      const routingTime = performance.now() - routingStart;
+
+      // Execute the prompt with fallbacks
+      const executionStart = performance.now();
+      const executionResult = await executeWithFallback(
+        routingResult.selectedModelId,
+        routingResult.scores
+          .filter(s => s.modelId !== routingResult.selectedModelId)
+          .map(s => s.modelId)
+          .slice(0, 2),
+        content,
+        messages
+      );
+
+      const executionTime = performance.now() - executionStart;
+
+      if (!executionResult.success || !executionResult.data) {
+        throw new Error(executionResult.error?.message || 'Failed to generate response');
+      }
+
+      // Save model performance metrics
+      await saveModelPerformance(
+        routingResult.selectedModelId,
+        true,
+        Math.round(executionTime)
+      );
+
+      // Create and save assistant message
+      const assistantMessage: ChatMessage = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: executionResult.data.content,
+        timestamp: Date.now(),
+        modelId: executionResult.data.modelId,
+        metadata: {
+          routingTime,
+          executionTime,
+          modelName: getModelById(executionResult.data.modelId)?.name,
+          provider: getModelById(executionResult.data.modelId)?.provider,
+          tokens: executionResult.data.tokens,
+          routing: {
+            taskType: routingResult.taskType,
+            complexity: routingResult.complexity,
+            candidateModels: routingResult.scores,
+            selectedModel: routingResult.selectedModelId
+          }
+        }
+      };
+
+      await saveChatMessage(sessionId!, assistantMessage);
+      setMessages(prev => [...prev, assistantMessage]);
+
+    } catch (error) {
+      console.error('Error processing message:', error);
+      toast.error('Failed to process your message. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [messages, sessionId]);
+
+  return {
+    messages,
+    isProcessing,
+    processMessage
+  };
+};
