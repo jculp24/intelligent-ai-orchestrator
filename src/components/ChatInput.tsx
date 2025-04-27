@@ -44,7 +44,7 @@ export function ChatInput({
         <form onSubmit={handleSubmit} className="relative">
           <Textarea ref={textareaRef} value={message} onChange={e => setMessage(e.target.value)} onKeyDown={handleKeyDown} placeholder={isSessionReady ? "Ask anything... We'll route to the best AI model" : "Initializing chat session..."} className="min-h-24 resize-none pr-16 rounded-lg border border-input bg-background" disabled={isProcessing || !isSessionReady} />
           <div className="absolute bottom-2 right-2">
-            <Button type="submit" size="icon" disabled={isProcessing || !message.trim() || !isSessionReady} className="rounded-full h-10 w-10 bg-blue-700 hover:bg-blue-600">
+            <Button type="submit" size="icon" disabled={isProcessing || !message.trim() || !isSessionReady} className="rounded-full h-10 w-10 bg-green-500 hover:bg-green-400">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rotate-90">
                 <path d="m22 2-7 20-4-9-9-4Z" />
                 <path d="M22 2 11 13" />
