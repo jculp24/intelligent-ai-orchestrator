@@ -4,9 +4,18 @@ import { ChatMessage } from "@/types";
 
 export const createChatSession = async (): Promise<{ id: string }> => {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+
     const { data: session, error } = await supabase
       .from('chat_sessions')
-      .insert({})
+      .insert({
+        user_id: user.id // Set the user_id to the authenticated user's ID
+      })
       .select()
       .single();
 
@@ -32,6 +41,9 @@ export const saveChatMessage = async (
   message: ChatMessage
 ): Promise<void> => {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { error } = await supabase
       .from('chat_messages')
       .insert({
@@ -39,6 +51,7 @@ export const saveChatMessage = async (
         content: message.content,
         role: message.role,
         model_id: message.modelId,
+        user_id: user?.id, // Set the user_id to the authenticated user's ID
         timestamp: new Date(message.timestamp).toISOString()
       });
 
