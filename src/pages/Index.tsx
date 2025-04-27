@@ -5,7 +5,7 @@ import { ChatMessage } from '@/components/ChatMessage';
 import { getModelById } from '@/services/modelRouter';
 
 const Index = () => {
-  const { messages, isProcessing, processMessage } = useChat();
+  const { messages, isProcessing, processMessage, isSessionReady } = useChat();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -23,7 +23,11 @@ const Index = () => {
         </div>
       </main>
       
-      <ChatInput onSubmit={processMessage} isProcessing={isProcessing} />
+      <ChatInput 
+        onSubmit={processMessage} 
+        isProcessing={isProcessing} 
+        isSessionReady={isSessionReady}
+      />
     </div>
   );
 };

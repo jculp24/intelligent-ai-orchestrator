@@ -7,14 +7,20 @@ import { toast } from 'sonner';
 interface ChatInputProps {
   onSubmit: (message: string) => void;
   isProcessing: boolean;
+  isSessionReady?: boolean;
 }
 
-export function ChatInput({ onSubmit, isProcessing }: ChatInputProps) {
+export function ChatInput({ onSubmit, isProcessing, isSessionReady = true }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    
+    if (!isSessionReady) {
+      toast.error('Chat session is initializing. Please wait a moment.');
+      return;
+    }
     
     const trimmedMessage = message.trim();
     if (!trimmedMessage) {
@@ -47,15 +53,17 @@ export function ChatInput({ onSubmit, isProcessing }: ChatInputProps) {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything... We'll route to the best AI model"
+            placeholder={isSessionReady 
+              ? "Ask anything... We'll route to the best AI model" 
+              : "Initializing chat session..."}
             className="min-h-24 resize-none pr-16 rounded-lg border border-input bg-background"
-            disabled={isProcessing}
+            disabled={isProcessing || !isSessionReady}
           />
           <div className="absolute bottom-2 right-2">
             <Button 
               type="submit" 
               size="icon" 
-              disabled={isProcessing || !message.trim()}
+              disabled={isProcessing || !message.trim() || !isSessionReady}
               className="rounded-full h-10 w-10 bg-primary hover:bg-primary/90"
             >
               <svg 
@@ -78,7 +86,9 @@ export function ChatInput({ onSubmit, isProcessing }: ChatInputProps) {
           </div>
         </form>
         <div className="mt-2 text-center text-xs text-muted-foreground">
-          {isProcessing ? 'Routing and processing your request...' : 'Messages are processed with the optimal AI model for your task'}
+          {!isSessionReady ? 'Initializing chat session...' :
+           isProcessing ? 'Routing and processing your request...' : 
+           'Messages are processed with the optimal AI model for your task'}
         </div>
       </div>
     </div>

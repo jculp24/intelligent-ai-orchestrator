@@ -13,15 +13,23 @@ export const useChat = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [evaluationsLoaded, setEvaluationsLoaded] = useState(false);
+  const [sessionInitialized, setSessionInitialized] = useState(false);
 
-  const initializeSession = useCallback(async () => {
-    try {
-      const session = await createChatSession();
-      setSessionId(session.id);
-    } catch (error) {
-      console.error('Failed to create chat session:', error);
-      toast.error('Failed to initialize chat session');
-    }
+  // Initialize a chat session when the component mounts
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const session = await createChatSession();
+        setSessionId(session.id);
+        setSessionInitialized(true);
+        console.log("Chat session initialized:", session.id);
+      } catch (error) {
+        console.error('Failed to create chat session:', error);
+        toast.error('Failed to initialize chat session');
+      }
+    };
+
+    initSession();
   }, []);
 
   // Load Grok3 model evaluations on component mount
@@ -40,8 +48,10 @@ export const useChat = () => {
   }, []);
 
   const processMessage = useCallback(async (content: string) => {
+    // Prevent processing if no session has been initialized
     if (!sessionId) {
-      await initializeSession();
+      toast.error('Chat session not ready. Please try again in a moment.');
+      return;
     }
 
     setIsProcessing(true);
@@ -55,7 +65,7 @@ export const useChat = () => {
         timestamp: Date.now()
       };
 
-      await saveChatMessage(sessionId!, userMessage);
+      await saveChatMessage(sessionId, userMessage);
       setMessages(prev => [...prev, userMessage]);
 
       // Route the prompt using Grok3 evaluation data
@@ -110,7 +120,7 @@ export const useChat = () => {
         }
       };
 
-      await saveChatMessage(sessionId!, assistantMessage);
+      await saveChatMessage(sessionId, assistantMessage);
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
@@ -119,12 +129,13 @@ export const useChat = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [messages, sessionId, initializeSession]);
+  }, [messages, sessionId]);
 
   return {
     messages,
     isProcessing,
     processMessage,
-    evaluationsLoaded
+    evaluationsLoaded,
+    isSessionReady: !!sessionId
   };
 };
