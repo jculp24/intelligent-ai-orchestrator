@@ -1,53 +1,78 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ChatMessage, ExecutionResult } from "@/types";
-import { v4 as uuidv4 } from "uuid";
+import { ChatMessage } from "@/types";
 
-interface ChatSession {
-  id: string;
-  user_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export const createChatSession = async (): Promise<{ id: string }> => {
+  try {
+    const { data: session, error } = await supabase
+      .from('chat_sessions')
+      .insert({})
+      .select()
+      .single();
 
-export const createChatSession = async (): Promise<ChatSession> => {
-  const { data, error } = await supabase
-    .from('chat_sessions')
-    .insert({})
-    .select()
-    .single();
+    if (error) throw error;
 
-  if (error) throw error;
-  return data;
+    // Log the session creation
+    await supabase.rpc('log_security_event', {
+      p_event_type: 'session_created',
+      p_session_id: session.id,
+      p_ip_address: window.location.hostname,
+      p_user_agent: navigator.userAgent
+    });
+
+    return session;
+  } catch (error) {
+    console.error('Error creating chat session:', error);
+    throw error;
+  }
 };
 
 export const saveChatMessage = async (
   sessionId: string,
   message: ChatMessage
 ): Promise<void> => {
-  const { error } = await supabase
-    .from('chat_messages')
-    .insert({
-      session_id: sessionId,
-      content: message.content,
-      role: message.role,
-      model_id: message.modelId,
-      timestamp: new Date(message.timestamp).toISOString()
-    });
+  try {
+    const { error } = await supabase
+      .from('chat_messages')
+      .insert({
+        session_id: sessionId,
+        content: message.content,
+        role: message.role,
+        model_id: message.modelId,
+        timestamp: new Date(message.timestamp).toISOString()
+      });
 
-  if (error) throw error;
+    if (error) throw error;
+
+    // Log the message creation
+    await supabase.rpc('log_security_event', {
+      p_event_type: 'message_created',
+      p_session_id: sessionId
+    });
+  } catch (error) {
+    console.error('Error saving chat message:', error);
+    throw error;
+  }
 };
 
-export const saveModelPerformance = async (
-  modelId: string,
-  success: boolean,
-  latency: number
-): Promise<void> => {
-  const { error } = await supabase.rpc('update_model_performance', {
-    p_model_id: modelId,
-    p_success: success,
-    p_latency: latency
-  });
+export const getChatSession = async (sessionId: string) => {
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
 
   if (error) throw error;
+  return data;
+};
+
+export const getChatMessages = async (sessionId: string) => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('timestamp', { ascending: true });
+
+  if (error) throw error;
+  return data;
 };
