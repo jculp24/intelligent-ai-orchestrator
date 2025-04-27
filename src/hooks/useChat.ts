@@ -1,9 +1,10 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ChatMessage, ExecutionResult, RoutingResult } from '@/types';
 import { routePrompt, getModelById } from '@/services/modelRouter';
 import { executeWithFallback } from '@/services/modelExecutor';
 import { createChatSession, saveChatMessage, saveModelPerformance } from '@/services/chatService';
+import { importGrokEvaluations } from '@/services/grokEvaluationService';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 
@@ -11,6 +12,7 @@ export const useChat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [evaluationsLoaded, setEvaluationsLoaded] = useState(false);
 
   const initializeSession = useCallback(async () => {
     try {
@@ -20,6 +22,21 @@ export const useChat = () => {
       console.error('Failed to create chat session:', error);
       toast.error('Failed to initialize chat session');
     }
+  }, []);
+
+  // Load Grok3 model evaluations on component mount
+  useEffect(() => {
+    const loadEvaluations = async () => {
+      const success = await importGrokEvaluations();
+      setEvaluationsLoaded(success);
+      if (success) {
+        toast.success('Model evaluations loaded successfully');
+      } else {
+        toast.error('Failed to load model evaluations');
+      }
+    };
+    
+    loadEvaluations();
   }, []);
 
   const processMessage = useCallback(async (content: string) => {
@@ -41,7 +58,7 @@ export const useChat = () => {
       await saveChatMessage(sessionId!, userMessage);
       setMessages(prev => [...prev, userMessage]);
 
-      // Route the prompt
+      // Route the prompt using Grok3 evaluation data
       const routingStart = performance.now();
       const routingResult = routePrompt(content, 'free');
       const routingTime = performance.now() - routingStart;
@@ -102,11 +119,12 @@ export const useChat = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [messages, sessionId]);
+  }, [messages, sessionId, initializeSession]);
 
   return {
     messages,
     isProcessing,
-    processMessage
+    processMessage,
+    evaluationsLoaded
   };
 };

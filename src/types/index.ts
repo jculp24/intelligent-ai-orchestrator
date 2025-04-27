@@ -44,6 +44,7 @@ export interface RoutingScore {
     costEfficiency: number;
     performanceRating: number;
     latencyRating: number;
+    grokEvaluationScore?: number;
   };
 }
 
@@ -103,4 +104,21 @@ export interface RoutingResult {
   complexity: number;
   scores: RoutingScore[];
   routingTime: number;
+}
+
+// New interface for model evaluations from Grok3
+export interface GrokModelEvaluation {
+  modelId: string;
+  modelName: string;
+  taskType: string;
+  score: number;
+  strengths: string[];
+  weaknesses: string[];
+  benchmarkResults: {
+    name: string;
+    score: number;
+    rank: number;
+  }[];
+  developerSentiment: number;
+  lastUpdated: number;
 }

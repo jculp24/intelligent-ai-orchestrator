@@ -1,6 +1,7 @@
 
 import { TaskType, ModelType, ModelConfig, RoutingResult, RoutingScore } from '../types';
 import { calculateModelScore } from '../utils/modelScoring';
+import { getBestModelForTask, getEvaluationsForTaskType } from './modelEvaluationService';
 
 // Mock available models - in a real app, these would be loaded from a config or API
 const availableModels: ModelConfig[] = [
@@ -126,37 +127,52 @@ export const routePrompt = (prompt: string, userTier: 'free' | 'paid' = 'free'):
   // Step 1: Classify the prompt
   const { type: taskType, complexity } = classifyPrompt(prompt);
   
-  // Step 2: Score each available model
+  // Step 2: Get best model based on Grok3 evaluation data
+  const bestModelId = getBestModelForTask(taskType);
+  
+  // Step 3: Score each available model using traditional factors and Grok evaluation
   const scores: RoutingScore[] = availableModels.map(model => {
+    // Get evaluation based score factor (0-1)
+    const evaluations = getEvaluationsForTaskType(taskType);
+    const modelEvaluation = evaluations.find(e => e.modelId === model.id);
+    const evaluationScore = modelEvaluation ? modelEvaluation.score / 10 : 0.5;
+    
+    // Calculate traditional score
+    const traditionalScore = calculateModelScore({
+      model,
+      taskType,
+      complexity,
+      userTier,
+      // Additional factors that would come from monitoring systems
+      recentSuccessRate: model.successRate,
+      recentLatency: model.averageLatency,
+      publicSentiment: 0.8,
+      currentLoad: 0.5
+    });
+    
+    // Weighted combination of traditional and evaluation-based scores
+    // We give higher weight to the Grok evaluation (70%)
+    const combinedScore = 0.3 * traditionalScore + 0.7 * evaluationScore;
+    
     return {
       modelId: model.id,
-      score: calculateModelScore({
-        model,
-        taskType,
-        complexity,
-        userTier,
-        // Additional factors that would come from monitoring systems
-        recentSuccessRate: model.successRate,
-        recentLatency: model.averageLatency,
-        publicSentiment: 0.8,
-        currentLoad: 0.5
-      }),
+      score: combinedScore,
       factors: {
-        taskTypeMatch: 0,
-        complexityFit: 0,
-        costEfficiency: 0,
-        performanceRating: 0,
-        latencyRating: 0
+        taskTypeMatch: model.preferredTasks.includes(taskType) ? 1.0 : 0.5,
+        complexityFit: complexity,
+        costEfficiency: 1 - (model.costPerToken * 10000),
+        performanceRating: model.successRate,
+        latencyRating: 1 - (model.averageLatency / 5000),
+        grokEvaluationScore: evaluationScore * 10
       }
     };
   });
   
-  // Step 3: Sort by score in descending order
+  // Sort by score in descending order
   const sortedScores = [...scores].sort((a, b) => b.score - a.score);
   
-  // Step 4: Select the highest-scoring model
-  // In a real app, we'd consider real-time degradation, outages, etc.
-  const selectedModelId = sortedScores[0].modelId;
+  // Select the highest-scoring model, or use the best model from evaluations if available
+  const selectedModelId = bestModelId || sortedScores[0].modelId;
   
   const routingTime = performance.now() - startTime;
   
