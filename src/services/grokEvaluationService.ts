@@ -35,8 +35,8 @@ export const importGrokEvaluations = async (): Promise<boolean> => {
     ];
     
     // Update our evaluation service with this data
-    mockEvaluations.forEach(eval => {
-      updateModelEvaluation(eval.modelId, eval.taskType, eval.score);
+    mockEvaluations.forEach(evaluation => {
+      updateModelEvaluation(evaluation.modelId, evaluation.taskType, evaluation.score);
     });
     
     // In a production system, you would store these evaluations in a database
